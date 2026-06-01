@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Vibeathon 2026",
+  "description": "Site officiel de l\u0027événement Vibeathon 2026 en Côte d\u0027Ivoire. Intelligence artificielle et environnement : Innover pour un avenir durable et inclusif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
