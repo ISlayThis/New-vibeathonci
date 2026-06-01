@@ -64,6 +64,18 @@ const pricing = [
 
 function PaymentLogo({ type }: { type: string }) {
   switch (type) {
+    case "campaign":
+      return (
+        <div className="w-12 h-12 bg-gradient-to-tr from-[#ff7900] via-[#06c] to-[#1bd7e4] rounded-2xl flex items-center justify-center shadow-md mb-3 text-white">
+          <Award className="w-6 h-6 text-white" />
+        </div>
+      );
+    case "all":
+      return (
+        <div className="w-12 h-12 bg-gradient-to-tr from-[#06c] via-[#0551aa] to-teal-500 rounded-2xl flex items-center justify-center shadow-md mb-3 text-white">
+          <CreditCard className="w-6 h-6" />
+        </div>
+      );
     case "wave":
       return (
         <div className="w-12 h-12 bg-[#1bd7e4] rounded-2xl flex items-center justify-center shadow-sm mb-3">
@@ -123,7 +135,7 @@ function PaymentLogo({ type }: { type: string }) {
 export function Registration() {
   const [activeForm, setActiveForm] = useState<"visiteur" | "formation_adulte" | "formation_kids" | "competition">("visiteur");
   const [formData, setFormData] = useState({ nom: "", email: "", tel: "", extra: "", message: "" });
-  const [paymentMethod, setPaymentMethod] = useState<"wave" | "orange" | "mtn" | "card" | "">("");
+  const [paymentMethod, setPaymentMethod] = useState<"campaign" | "all" | "wave" | "orange" | "mtn" | "card" | "">("campaign");
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [successDetails, setSuccessDetails] = useState({ plan: "", name: "" });
@@ -153,6 +165,27 @@ export function Registration() {
     setIsProcessing(true);
     const plan = pricing.find(p => p.type === activeForm);
     const amount = plan?.price === "10 000 FCFA" ? 10000 : plan?.price === "5 000 FCFA" ? 5000 : plan?.price === "500 FCFA" ? 500 : 20000;
+
+    // Redirection directe vers la boutique/campagne officielle validée
+    if (paymentMethod === "campaign") {
+      try {
+        localStorage.setItem("vibeathon_pending_reg", JSON.stringify({
+          plan: plan?.name,
+          name: formData.nom,
+          email: formData.email,
+          tel: formData.tel,
+          type: activeForm,
+          amount: amount,
+          date: new Date().toISOString()
+        }));
+        
+        // Redirection vers le lien officiel de paiement configuré
+        window.location.href = "https://vente.paiementpro.net/paiement-vibeathon-/7523";
+        return;
+      } catch (err) {
+        console.error("Local storage or redirection failure:", err);
+      }
+    }
 
     const PaiementPro = (window as any).PaiementPro;
     if (!PaiementPro) {
@@ -491,30 +524,53 @@ export function Registration() {
 
               {/* Payment Section */}
               <div className="pt-8 border-t border-[#d2d2d7]/50 mt-8">
-                  <h3 className="text-xl font-bold tracking-tight text-[#1d1d1f] mb-6">Moyen de paiement</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
+                    <h3 className="text-xl font-bold tracking-tight text-[#1d1d1f]">Moyen de paiement</h3>
+                    <span className="text-xs bg-[#06c]/10 text-[#06c] font-bold px-3 py-1 rounded-full">Partenaire officiel : Paiement Pro</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
                     {[
-                      { id: "wave", label: "Wave", activeClass: "border-[#1bd7e4] bg-[#1bd7e4]/5" },
-                      { id: "orange", label: "Orange Money", activeClass: "border-[#ff7900] bg-[#ff7900]/5" },
-                      { id: "mtn", label: "MTN MoMo", activeClass: "border-[#ffcc00] bg-[#ffcc00]/5" },
-                      { id: "card", label: "Carte Bancaire", activeClass: "border-[#1d1d1f] bg-[#1d1d1f]/5" }
+                      { id: "campaign", label: "Guichet Événement (Pay 100% OK)", activeClass: "border-[#ff7900] bg-[#ff7900]/5 ring-2 ring-[#ff7900]" },
+                      { id: "all", label: "Portail Global API", activeClass: "border-[#06c] bg-[#06c]/5" },
+                      { id: "wave", label: "Wave Direct API", activeClass: "border-[#1bd7e4] bg-[#1bd7e4]/5" },
+                      { id: "orange", label: "Orange Money API", activeClass: "border-[#ff7900] bg-[#ff7900]/5" },
+                      { id: "mtn", label: "MTN MoMo API", activeClass: "border-[#ffcc00] bg-[#ffcc00]/5" },
+                      { id: "card", label: "Carte Bancaire API", activeClass: "border-[#1d1d1f] bg-[#1d1d1f]/5" }
                     ].map(pm => (
                       <label 
                         key={pm.id} 
-                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${paymentMethod === pm.id ? pm.activeClass + ' scale-[1.02] shadow-sm' : 'border-transparent bg-[#f5f5f7] hover:bg-[#e8e8ed]'}`}
+                        className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative ${paymentMethod === pm.id ? pm.activeClass + ' scale-[1.02] shadow-sm' : 'border-transparent bg-[#f5f5f7] hover:bg-[#e8e8ed]'}`}
                       >
+                        {pm.id === "campaign" && (
+                          <span className="absolute -top-2.5 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-[#ff7900] text-white text-[8px] font-black rounded-full shadow-sm uppercase tracking-wide">
+                            Recommandé
+                          </span>
+                        )}
                         <input 
-                          type="radio" 
-                          name="payment" 
-                          value={pm.id} 
-                          checked={paymentMethod === pm.id}
-                          onChange={() => setPaymentMethod(pm.id as any)}
-                          className="hidden" 
+                           type="radio" 
+                           name="payment" 
+                           value={pm.id} 
+                           checked={paymentMethod === pm.id}
+                           onChange={() => setPaymentMethod(pm.id as any)}
+                           className="hidden" 
                         />
                         <PaymentLogo type={pm.id} />
-                        <span className={`text-xs font-bold text-center ${paymentMethod === pm.id ? 'text-[#1d1d1f]' : 'text-[#86868b]'}`}>{pm.label}</span>
+                        <span className={`text-[10px] font-bold text-center leading-tight ${paymentMethod === pm.id ? 'text-[#1d1d1f]' : 'text-[#86868b]'}`}>{pm.label}</span>
                       </label>
                     ))}
+                  </div>
+
+                  <div className="mt-6 bg-[#f5f5f7] border border-gray-200 rounded-2xl p-5 text-sm text-[#1d1d1f] leading-relaxed space-y-3">
+                    <p className="font-bold flex items-center gap-2 text-emerald-600">
+                      ✅ Option Recommandée sélectionnée : Page de Vente Vibeathon
+                    </p>
+                    <p className="text-gray-600">
+                      Vous allez être redirigé vers votre ticket officiel d'événement sur <strong>Paiement Pro (<a href="https://vente.paiementpro.net/paiement-vibeathon-/7523" target="_blank" rel="noopener noreferrer" className="text-[#06c] underline hover:text-[#005bb5]">vente.paiementpro.net/7523</a>)</strong>. Cette page gère de façon sécurisée et validée tous les opérateurs (Wave, Orange, MTN, Moov, Visa, Mastercard).
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      💡 <em>Note technique :</em> Les liaisons API directes tierces (Wave API, etc.) requièrent la souscription et l'activation explicite d'abonnements canaux développeurs via la console d'administration Paiement Pro (identifiant marchand configuré : <code>{import.meta.env.VITE_PAIEMENTPRO_MERCHANT_ID || 'PP-F92248'}</code>). Si ces canaux API ne sont pas encore certifiés par Paiement Pro pour votre clé, l'outil affichera l'erreur "moyen de paiement indisponible". Utilisez le <strong>Guichet Événement</strong> pour contourner cette limite !
+                    </p>
                   </div>
               </div>
 
