@@ -135,7 +135,7 @@ function PaymentLogo({ type }: { type: string }) {
 export function Registration() {
   const [activeForm, setActiveForm] = useState<"visiteur" | "formation_adulte" | "formation_kids" | "competition">("visiteur");
   const [formData, setFormData] = useState({ nom: "", email: "", tel: "", extra: "", message: "" });
-  const [paymentMethod, setPaymentMethod] = useState<"campaign" | "all" | "wave" | "orange" | "mtn" | "card" | "">("campaign");
+  const [paymentMethod, setPaymentMethod] = useState<"all" | "wave" | "orange" | "mtn" | "card" | "">("wave");
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [successDetails, setSuccessDetails] = useState({ plan: "", name: "" });
@@ -164,75 +164,65 @@ export function Registration() {
 
     setIsProcessing(true);
     const plan = pricing.find(p => p.type === activeForm);
-    const amount = plan?.price === "10 000 FCFA" ? 10000 : plan?.price === "5 000 FCFA" ? 5000 : plan?.price === "500 FCFA" ? 500 : 20000;
 
-    // Redirection directe vers la boutique/campagne officielle validée
-    if (paymentMethod === "campaign") {
-      try {
-        localStorage.setItem("vibeathon_pending_reg", JSON.stringify({
-          plan: plan?.name,
-          name: formData.nom,
-          email: formData.email,
-          tel: formData.tel,
-          type: activeForm,
-          amount: amount,
-          date: new Date().toISOString()
-        }));
-        
-        // Redirection vers le lien officiel de paiement configuré
-        window.location.href = "https://vente.paiementpro.net/paiement-vibeathon-/7523";
-        return;
-      } catch (err) {
-        console.error("Local storage or redirection failure:", err);
-      }
-    }
-
-    const PaiementPro = (window as any).PaiementPro;
-    if (!PaiementPro) {
-      alert("Le service de paiement Paiement Pro est indisponible pour le moment.");
-      setIsProcessing(false);
-      return;
-    }
-
-    const merchantId = import.meta.env.VITE_PAIEMENTPRO_MERCHANT_ID || 'PP-F92248';
-    let paiementPro = new PaiementPro(merchantId);
-    paiementPro.amount = amount;
-    
-    // Déterminer le code de canal approprié pour Paiement Pro
-    let channelCode = '';
-    if (paymentMethod === 'wave') channelCode = 'WAVE';
-    else if (paymentMethod === 'orange') channelCode = 'ORANGE';
-    else if (paymentMethod === 'mtn') channelCode = 'MTN';
-    else if (paymentMethod === 'card') channelCode = 'CARD';
-    
-    paiementPro.channel = channelCode;
-    paiementPro.referenceNumber = `VB-${Date.now()}`;
-    paiementPro.customerEmail = formData.email;
-    
-    // CRITIQUE : Les DEUX variables customerFirstName et customerLastname sont OBLIGATOIRES dans la bibliothèque Paiement Pro.
-    // L'omission de customerFirstName causait une erreur d'initialisation sur le serveur Paiement Pro !
-    paiementPro.customerFirstName = formData.nomCode || formData.nom || 'Participant';
-    paiementPro.customerLastname = formData.nom || 'Participant';
-    
-    paiementPro.customerPhoneNumber = formData.tel || '0000000000';
-    paiementPro.description = `Inscription Vibeathon 2026 - ${plan?.name}`;
-
-    // Configurer les URLs de retour et de notification pour rediriger l'utilisateur après paiement
-    const baseUrl = window.location.origin + window.location.pathname;
-    paiementPro.returnURL = `${baseUrl}?payment=success&plan=${activeForm}&name=${encodeURIComponent(formData.nom)}`;
-    paiementPro.notificationURL = `${baseUrl}?payment=notification`;
+    const amountMap: Record<string, number> = {
+      visiteur: 500,
+      formation_adulte: 10000,
+      formation_kids: 5000,
+      competition: 20000,
+    };
+    const amount = amountMap[activeForm] ?? 500;
 
     try {
-      await paiementPro.getUrlPayment();
-      if (paiementPro.success && paiementPro.url) {
-        window.location.href = paiementPro.url;
+      localStorage.setItem("vibeathon_pending_reg", JSON.stringify({
+        plan: plan?.name, name: formData.nom, email: formData.email,
+        tel: formData.tel, type: activeForm, amount,
+        date: new Date().toISOString()
+      }));
+    } catch (_) {}
+
+    const channelMap: Record<string, string> = {
+      wave: "WAVE", orange: "ORANGE", mtn: "MTN", card: "CARD", all: "",
+    };
+
+    const merchantId = import.meta.env.VITE_PAIEMENTPRO_MERCHANT_ID || "PP-F92248";
+    const baseUrl = window.location.origin + window.location.pathname;
+
+    const payload = {
+      merchantId,
+      amount,
+      description: `Inscription Vibeathon 2026 - ${plan?.name}`,
+      channel: channelMap[paymentMethod] ?? "",
+      countryCurrencyCode: "952",
+      referenceNumber: `VB-${Date.now()}`,
+      customerEmail: formData.email,
+      customerFirstName: formData.nom || "Participant",
+      customerLastname: formData.nom || "Participant",
+      customerPhoneNumber: formData.tel || "0000000000",
+      returnURL: `${baseUrl}?payment=success&plan=${activeForm}&name=${encodeURIComponent(formData.nom)}`,
+      notificationURL: `${baseUrl}?payment=success&plan=${activeForm}&name=${encodeURIComponent(formData.nom)}`,
+      returnContext: "",
+      url: "",
+      success: false,
+    };
+
+    try {
+      const response = await fetch("/api/payment/init", {
+        method: "POST",
+        headers: { "Accept": "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (data.success && data.url) {
+        window.location.href = data.url;
       } else {
-        alert("Erreur lors de l'initialisation du paiement avec Paiement Pro. Veuillez vérifier vos coordonnées.");
+        console.error("PaiementPro response:", data);
+        alert("Erreur lors de l'initialisation du paiement. Veuillez réessayer.");
         setIsProcessing(false);
       }
     } catch (err) {
-      console.error("PaiementPro initialization error:", err);
-      alert("Erreur de connexion avec Paiement Pro. Veuillez réessayer.");
+      console.error("PaiementPro fetch error:", err);
+      alert("Impossible de contacter le service de paiement. Vérifiez votre connexion.");
       setIsProcessing(false);
     }
   };
@@ -529,24 +519,18 @@ export function Registration() {
                     <span className="text-xs bg-[#06c]/10 text-[#06c] font-bold px-3 py-1 rounded-full">Partenaire officiel : Paiement Pro</span>
                   </div>
                   
-                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                     {[
-                      { id: "campaign", label: "Guichet Événement (Pay 100% OK)", activeClass: "border-[#ff7900] bg-[#ff7900]/5 ring-2 ring-[#ff7900]" },
-                      { id: "all", label: "Portail Global API", activeClass: "border-[#06c] bg-[#06c]/5" },
-                      { id: "wave", label: "Wave Direct API", activeClass: "border-[#1bd7e4] bg-[#1bd7e4]/5" },
-                      { id: "orange", label: "Orange Money API", activeClass: "border-[#ff7900] bg-[#ff7900]/5" },
-                      { id: "mtn", label: "MTN MoMo API", activeClass: "border-[#ffcc00] bg-[#ffcc00]/5" },
-                      { id: "card", label: "Carte Bancaire API", activeClass: "border-[#1d1d1f] bg-[#1d1d1f]/5" }
+                      { id: "all", label: "Portail Paiement Pro", activeClass: "border-[#06c] bg-[#06c]/5" },
+                      { id: "wave", label: "Wave", activeClass: "border-[#1bd7e4] bg-[#1bd7e4]/5" },
+                      { id: "orange", label: "Orange Money", activeClass: "border-[#ff7900] bg-[#ff7900]/5" },
+                      { id: "mtn", label: "MTN MoMo", activeClass: "border-[#ffcc00] bg-[#ffcc00]/5" },
+                      { id: "card", label: "Carte Bancaire", activeClass: "border-[#1d1d1f] bg-[#1d1d1f]/5" }
                     ].map(pm => (
                       <label 
                         key={pm.id} 
                         className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative ${paymentMethod === pm.id ? pm.activeClass + ' scale-[1.02] shadow-sm' : 'border-transparent bg-[#f5f5f7] hover:bg-[#e8e8ed]'}`}
                       >
-                        {pm.id === "campaign" && (
-                          <span className="absolute -top-2.5 px-2 py-0.5 bg-gradient-to-r from-orange-500 to-[#ff7900] text-white text-[8px] font-black rounded-full shadow-sm uppercase tracking-wide">
-                            Recommandé
-                          </span>
-                        )}
                         <input 
                            type="radio" 
                            name="payment" 
@@ -561,15 +545,9 @@ export function Registration() {
                     ))}
                   </div>
 
-                  <div className="mt-6 bg-[#f5f5f7] border border-gray-200 rounded-2xl p-5 text-sm text-[#1d1d1f] leading-relaxed space-y-3">
-                    <p className="font-bold flex items-center gap-2 text-emerald-600">
-                      ✅ Option Recommandée sélectionnée : Page de Vente Vibeathon
-                    </p>
+                  <div className="mt-6 bg-[#f5f5f7] border border-gray-200 rounded-2xl p-5 text-sm text-[#1d1d1f] leading-relaxed">
                     <p className="text-gray-600">
-                      Vous allez être redirigé vers votre ticket officiel d'événement sur <strong>Paiement Pro (<a href="https://vente.paiementpro.net/paiement-vibeathon-/7523" target="_blank" rel="noopener noreferrer" className="text-[#06c] underline hover:text-[#005bb5]">vente.paiementpro.net/7523</a>)</strong>. Cette page gère de façon sécurisée et validée tous les opérateurs (Wave, Orange, MTN, Moov, Visa, Mastercard).
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      💡 <em>Note technique :</em> Les liaisons API directes tierces (Wave API, etc.) requièrent la souscription et l'activation explicite d'abonnements canaux développeurs via la console d'administration Paiement Pro (identifiant marchand configuré : <code>{import.meta.env.VITE_PAIEMENTPRO_MERCHANT_ID || 'PP-F92248'}</code>). Si ces canaux API ne sont pas encore certifiés par Paiement Pro pour votre clé, l'outil affichera l'erreur "moyen de paiement indisponible". Utilisez le <strong>Guichet Événement</strong> pour contourner cette limite !
+                      🔒 Vous serez redirigé vers la page de paiement sécurisée <strong>Paiement Pro</strong> — Wave, Orange Money, MTN MoMo, Moov, Visa et Mastercard acceptés.
                     </p>
                   </div>
               </div>
