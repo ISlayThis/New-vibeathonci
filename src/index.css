@@ -9,6 +9,10 @@
 }
 
 @theme {
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --color-cms-primary: var(--cms-primary, #06c);
+  --color-cms-secondary: var(--cms-secondary, #f18122);
+  --color-cms-bg: var(--cms-bg, #ffffff);
+  --color-cms-text: var(--cms-text, #1d1d1f);
+  --font-sans: var(--cms-font, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
+  --font-display: var(--cms-font, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif);
 }
