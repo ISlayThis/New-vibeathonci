@@ -188,6 +188,10 @@ export function Registration() {
     const merchantId = import.meta.env.VITE_PAIEMENTPRO_MERCHANT_ID || "PP-F92248";
     const baseUrl = window.location.origin + window.location.pathname;
 
+    const nomParts = (formData.nom || "Participant").trim().split(" ");
+    const firstName = nomParts[0];
+    const lastName = nomParts.length > 1 ? nomParts.slice(1).join(" ") : nomParts[0];
+
     const payload = {
       merchantId,
       amount,
@@ -195,9 +199,9 @@ export function Registration() {
       channel: channelMap[paymentMethod] ?? "",
       countryCurrencyCode: "952",
       referenceNumber: `VB-${Date.now()}`,
-      customerEmail: formData.email,
-      customerFirstName: formData.nom || "Participant",
-      customerLastname: formData.nom || "Participant",
+      customerEmail: formData.email || "client@vibeathonci.com",
+      customerFirstName: firstName,
+      customerLastname: lastName,
       customerPhoneNumber: formData.tel || "0000000000",
       returnURL: `${baseUrl}?payment=success&plan=${activeForm}&name=${encodeURIComponent(formData.nom)}`,
       notificationURL: `${baseUrl}?payment=success&plan=${activeForm}&name=${encodeURIComponent(formData.nom)}`,
@@ -205,6 +209,8 @@ export function Registration() {
       url: "",
       success: false,
     };
+
+    console.log("PaiementPro payload:", JSON.stringify(payload));
 
     try {
       const response = await fetch("/api/payment/init", {
